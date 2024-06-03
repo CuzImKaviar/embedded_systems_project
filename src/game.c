@@ -69,25 +69,6 @@ void place_ships(GameBoard *board) {
     }
 }
 
-void calculate_checksum(GameBoard *board) {
-    for (int i = 0; i < GRID_SIZE; i++) {
-        uint8_t sum = 0;
-        for (int j = 0; j < GRID_SIZE; j++) {
-            sum += board->grid[i][j];
-        }
-        board->checksum[i] = sum;
-    }
-}
-
-int receive_checksum(const char *msg, uint8_t *checksum) {
-    for (int i = 0; i < GRID_SIZE; i++) {
-        if (sscanf(msg + 2 * i, "%2hhx", &checksum[i]) != 1) {
-            return -1; // Fehler beim Parsen
-        }
-    }
-    return 0; // Erfolgreich
-}
-
 void send_checksum(GameBoard *board) {
     int ship_count[GRID_SIZE] = {0};
     char checksum[GRID_SIZE] = {0};

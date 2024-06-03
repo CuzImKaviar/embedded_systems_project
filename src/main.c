@@ -82,20 +82,6 @@ void process_received_data(const char *data) {
     }
 }
 
-void process_start(void) {
-    if (newline_rcvd) {
-        uint8_t opponent_martrikelnummer = data[0];
-        printf("Martrikelnummer: %d\n", opponent_martrikelnummer);
-        state = STATE_SEND_CHECKSUM;
-    }
-}
-
-void process_checksum(void) {
-    if (receive_checksum((char*)data, opponent_board.checksum)) {
-        state = STATE_SEND_SHOT;
-    }
-}
-
 void start_loop(void) {
     switch (state) {
         case STATE_INIT:
@@ -219,12 +205,13 @@ int main(void) {
         }
 
 ///////////////////////////////////////////GAME PHASE///////////////////////////////////////////
-
-        if(phase == STATE_START){
-            start_loop();
-        }
-        else if(phase == STATE_GAME){
-            game_loop();
+        if(player != 0){
+            if(phase == STATE_START){
+                start_loop();
+            }
+            else if(phase == STATE_GAME){
+                game_loop();
+            }
         }
     }
 
