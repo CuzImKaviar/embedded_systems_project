@@ -24,8 +24,6 @@ typedef struct
 typedef struct 
 {
     uint32_t baudrate;
-    uint8_t fifo_size;
-    ringbuffer_handler_t *rx_fifo;
 }epl_usart_t;
 
 
