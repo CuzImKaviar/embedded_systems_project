@@ -12,15 +12,17 @@ typedef enum {
     STATE_SEND_CHECKSUM,
     STATE_WAIT_CHECKSUM,
     STATE_SEND_SHOT,
-    STATE_WAIT_SHOT,
-    STATE_SEND_RESULT,
-    STATE_WAIT_RESULT,
-    STATE_END
+    STATE_HANDLE_SHOT,
+    STATE_INIT_PLAYER,
+    STATE_CHECK_RESULT,
+    STATE_SF,
+    STATE_RESET,
 } GameState;
 
 typedef enum {
     STATE_START,
     STATE_GAME,
+    STATE_END,
 } GamePhase;
 
 #endif // MAIN_H_

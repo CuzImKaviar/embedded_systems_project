@@ -5,6 +5,8 @@
 
 #define GRID_SIZE 10
 
+int hit_counter;
+
 typedef enum {
     WATER,
     HIT,
@@ -22,7 +24,9 @@ void calculate_checksum(GameBoard *board);
 void place_ships(GameBoard *board);
 int receive_checksum(const char *msg, uint8_t *checksum);
 void send_checksum(GameBoard *board);
-void handle_shot(GameBoard *board, int x, int y, char *response);
+
+void handle_shot(GameBoard *board, int x, int y);
+void send_shot(void);
 
 void print_board(GameBoard *board);
 

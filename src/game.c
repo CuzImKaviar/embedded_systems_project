@@ -5,6 +5,8 @@
 #include <time.h>
 #include <string.h>
 
+int hit_counter = 0;
+
 void init_game_board(GameBoard *board) {
     // Initialisieren des Spielfeldes mit Wasser
     for (int i = 0; i < GRID_SIZE; i++) {
@@ -86,15 +88,6 @@ void send_checksum(GameBoard *board) {
     }
     printf("CS%s\n", checksum);
 }
-void handle_shot(GameBoard *board, int x, int y, char *response) {
-    if (board->grid[x][y] == SHIP) {
-        board->grid[x][y] = HIT;
-        strcpy(response, "HIT");
-    } else if (board->grid[x][y] == WATER) {
-        board->grid[x][y] = MISS;
-        strcpy(response, "MISS");
-    }
-}
 
 void print_board(GameBoard *board) {
     printf("Spielfeld:\n");
@@ -119,4 +112,26 @@ void print_board(GameBoard *board) {
         }
         printf("\n");
     }
+}
+
+void handle_shot(GameBoard *board, int x, int y) {
+    if (board->grid[x][y] == SHIP || board->grid[x][y] == HIT) {
+        board->grid[x][y] = HIT;
+        hit_counter++;
+        if(hit_counter == 30){
+            printf("L\n");
+        }
+        else{
+            printf("T\n");
+        }
+    } else if (board->grid[x][y] == WATER) {
+        board->grid[x][y] = MISS;
+        printf("W\n");
+    }
+}
+
+void send_shot(void){
+    int x = ADC_read() % GRID_SIZE;
+    int y = ADC_read() % GRID_SIZE;
+    printf("BOOM%d%d\n", x, y);
 }
