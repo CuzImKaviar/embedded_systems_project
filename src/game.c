@@ -55,6 +55,7 @@ void place_ship(GameBoard *board, int length) {
                 int new_x = x + (horizontal ? i : 0);
                 int new_y = y + (horizontal ? 0 : i);
                 board->grid[new_x][new_y] = SHIP;
+                board->ship_lengths[new_x][new_y] = length;
             }
             placed = true;
         }
@@ -114,23 +115,7 @@ void print_board(GameBoard *board) {
     }
 }
 
-void handle_shot(GameBoard *board, int x, int y) {
-    if (board->grid[x][y] == SHIP || board->grid[x][y] == HIT) {
-        board->grid[x][y] = HIT;
-        hit_counter++;
-        if(hit_counter == 30){
-            printf("L\n");
-        }
-        else{
-            printf("T\n");
-        }
-    } else if (board->grid[x][y] == WATER) {
-        board->grid[x][y] = MISS;
-        printf("W\n");
-    }
-}
-
-void send_shot(void){
+void stupid_fire_solution(void){
     int x = ADC_read() % GRID_SIZE;
     int y = ADC_read() % GRID_SIZE;
     printf("BOOM%d%d\n", x, y);

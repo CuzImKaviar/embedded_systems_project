@@ -17,6 +17,7 @@ typedef enum {
 typedef struct {
     CellState grid[GRID_SIZE][GRID_SIZE];
     uint8_t checksum[GRID_SIZE];
+    int ship_lengths[GRID_SIZE][GRID_SIZE];
 } GameBoard;
 
 void init_game_board(GameBoard *board);
@@ -25,8 +26,8 @@ void place_ships(GameBoard *board);
 int receive_checksum(const char *msg, uint8_t *checksum);
 void send_checksum(GameBoard *board);
 
-void handle_shot(GameBoard *board, int x, int y);
-void send_shot(void);
+
+void stupid_fire_solution(void);
 
 void print_board(GameBoard *board);
 

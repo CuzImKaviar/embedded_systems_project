@@ -16,10 +16,13 @@ uint8_t data_idx = 0;
 bool newline_rcvd = false;
 GameBoard player_board, opponent_board;
 GameState state = STATE_INIT;
-GamePhase phase = STATE_START;
+GamePhase phase = PHASE_START;
+int iterations = 0;
+int schiffe_getroffen = 0;
 
 //global variable to store the player number
 int player = 0;
+int x, y;
 
 void set_default_values(void){
     uint8_t data[20];
@@ -27,7 +30,9 @@ void set_default_values(void){
     bool newline_rcvd = false;
     GameBoard player_board, opponent_board;
     GameState state = STATE_INIT;
-    GamePhase phase = STATE_START;
+    GamePhase phase = PHASE_START;
+    int counter = 0;
+    int schiffe_getroffen = 0;
 
     //global variable to store the player number
     int player = 0;
@@ -47,7 +52,6 @@ void USART2_IRQHandler() {
     }
 }
 
-
 void reset_data() {
     memset(data, 0, sizeof(data));
     data_idx = 0;
@@ -56,63 +60,90 @@ void reset_data() {
 
 void process_received_data(const char *data) {
     if (strncmp(data, "START", 5) == 0) {
-        char opponent_id[10];
+        char opponent_id[10] = {0};
         strncpy(opponent_id, data + 5, 8);
-        opponent_id[9] = '\0';
-        reset_data();
     } else if (strncmp(data, "CS", 2) == 0 && strlen(data) == 13) {
         strncpy(opponent_board.checksum, data + 2, 10);
-        reset_data();
     } else if (strncmp(data, "BOOM", 4) == 0 && strlen(data) == 6) {
-        char boom[3];
-        strncpy(boom, data + 4, 2);
-        boom[2] = '\0';
-        reset_data();
-    } else if ((data[0] == 'W' || data[0] == 'T' || data[0] == 'V') && strlen(data) == 2) {
-        switch(data[0]) {
-            case 'W':
-                printf("W");
-                break;
-            case 'T':
-                printf("T");
-                break;
-            case 'V':
-                printf("V");
-                break;
+        x = data[4];
+        y = data[5];
+    } else if ((strncmp(data, "T", 1) == 0 || strncmp(data, "W", 1) == 0) && strlen(data) == 2) {
+        if(data[0] == "T"){
+            schiffe_getroffen++;
         }
-        reset_data();
+        iterations++;
+        if(iterations >= 100){
+            printf("Protokollfehler, über 100 Schüsse abgegeben\n");
+            phase = PHASE_END;
+            state = STATE_RESET;
+        }
     } else if (strncmp(data, "SF", 2) == 0 && data[3] == 'D' && strlen(data) == 15) {
         char opponent_ship_field[12];
         strncpy(opponent_ship_field, data + 4, 10);
         opponent_ship_field[10] = '\0';
-        printf("Gültiger Command SF: %s", opponent_ship_field);
-        reset_data();
-    } else {
-        printf("Ungültige Daten: %s", data);
-        reset_data();
+        printf("Gueltiger Command SF: %s", opponent_ship_field);
+    } /*else {
+        printf("Ungueltige Daten: %s", data);
+    }*/
+    reset_data();
+}
+
+void handle_shot(GameBoard *board, int x, int y) {
+    if (board->grid[x][y] == SHIP || board->grid[x][y] == HIT) {
+        board->grid[x][y] = HIT;
+        hit_counter++;
+        if(hit_counter == 30){
+            //printf("Lost!!!!!!!\n"); //DEBUG MESSAGE
+            state = STATE_SF;
+            phase = PHASE_END;
+        }
+        else{
+            printf("T\n");
+        }
+    } else if (board->grid[x][y] == WATER) {
+        board->grid[x][y] = MISS;
+        printf("W\n");
     }
+}
+
+void send_sf(GameBoard *board){
+    for (int col = 0; col < GRID_SIZE; col++) {
+        printf("SF[%d]D", col);
+        for (int row = 0; row < GRID_SIZE; row++) {
+            printf("[%d]", board->ship_lengths[row][col]);
+        }
+        printf("\n");
+    }
+}
+
+void process_sf(const char *data){
+    
 }
 
 void start_loop(void) {
     switch (state) {
-        case STATE_INIT:
-            // Initial state, wait for someone to start the game
-            break;
-        case STATE_PLAYER1:
+        case STATE_SEND_START:
             // Initial state p1, send START message
             printf("START52215874\n");
-            state = STATE_WAIT_CHECKSUM;
+            if(player == 1){
+                state = STATE_WAIT_CHECKSUM;
+            } else if(player == 2){
+                phase = PHASE_GAME;
+                state = STATE_INIT_PLAYER;
+            }
             break;
-        case STATE_PLAYER2:
+        case STATE_PROCESS_START:
             // Initial state p2, process START message
-            process_received_data((char*)data);
-            state = STATE_SEND_CHECKSUM;
+            if(newline_rcvd){
+                process_received_data((char*)data);
+                state = STATE_SEND_CHECKSUM;
+            }
             break;
         case STATE_WAIT_START:
             // Wait for START message
             if(newline_rcvd){
                 process_received_data((char*)data);
-                phase = STATE_GAME;
+                phase = PHASE_GAME;
                 state = STATE_INIT_PLAYER;
             }
             break;
@@ -121,48 +152,52 @@ void start_loop(void) {
             send_checksum(&player_board);
             if(player == 1){
                 state = STATE_WAIT_START;
-            } else {
+            } else if(player ==2){
                 state = STATE_WAIT_CHECKSUM;
             }
             break;
         case STATE_WAIT_CHECKSUM:
             // Wait for checksum from opponent
-            if (newline_rcvd) {
+            if(newline_rcvd){
                 process_received_data((char*)data);
-                if (player == 1) {
+                if(player == 1){
                     state = STATE_SEND_CHECKSUM;
-                } else {
-                    phase = STATE_GAME;
-                    state = STATE_INIT_PLAYER;
+                } else if(player==2){
+                    state = STATE_SEND_START;
                 }
             }
+            
             break;
         default:
             break;
     }
 }
 void game_loop(void){
-    int x, y;
-
     switch (state) {
         case STATE_INIT_PLAYER:
             // Initial state, set player state
             if(player == 1){
                 state = STATE_SEND_SHOT;
-            } else {
+            } else if(player==2){
                 state = STATE_HANDLE_SHOT;
             }
             break;
         case STATE_SEND_SHOT:
             // Send shot message
-            send_shot();
-            state = STATE_HANDLE_SHOT;
+            stupid_fire_solution();
+            state = STATE_CHECK_SHOT;
+            break;
+        case STATE_CHECK_SHOT:
+            // Check result of shot
+            if(newline_rcvd){
+                process_received_data((char*)data);
+                state = STATE_HANDLE_SHOT;
+            }
             break;
         case STATE_HANDLE_SHOT:
             // Wait for opponent's shot
-            if (newline_rcvd /*&& */) {
-                x = (int) data[4];
-                y = (int) data[5];
+            if (newline_rcvd) {
+                process_received_data((char*)data);
                 handle_shot(&player_board, x, y);
                 state = STATE_SEND_SHOT;
             }
@@ -174,12 +209,17 @@ void game_loop(void){
 
 void end_loop(void){
     switch(state){
-        case STATE_CHECK_RESULT:
-            break;
         case STATE_SF:
+            // Send SF message
+            send_sf(&player_board);
+            if(newline_rcvd){
+                process_sf((char*)data);
+                state = STATE_RESET;
+            }
             break;
         case STATE_RESET:
             set_default_values();
+            reset_data();
             break;
         default:
             break;
@@ -198,29 +238,28 @@ int main(void) {
 
     init_game_board(&player_board);
     place_ships(&player_board);
-    //print_board(&player_board);
-
+    print_board(&player_board);
     while (1) {
 ///////////////////////////////////////////WAIT FOR START///////////////////////////////////////////
 
         if (button && player == 0) {
             player = 1;
-            state = STATE_PLAYER1;
+            state = STATE_SEND_START;
         }
         else if (newline_rcvd && player == 0) {
             player = 2;
-            state = STATE_PLAYER2;
+            state = STATE_PROCESS_START;
         }
 
 ///////////////////////////////////////////GAME PHASE///////////////////////////////////////////
         if(player != 0){
-            if(phase == STATE_START){
+            if(phase == PHASE_START){
                 start_loop();
             }
-            else if(phase == STATE_GAME){
+            else if(phase == PHASE_GAME){
                 game_loop();
             }
-            else if(phase == STATE_END){
+            else if(phase == PHASE_END){
                 end_loop();
             }
         }
