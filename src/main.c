@@ -4,6 +4,7 @@
 #include "adc.h"
 #include "button.h"
 #include "game.h"
+#include "debug.h"
 #include "main.h"
 #include <stdio.h>
 #include <stdbool.h>
@@ -348,6 +349,11 @@ int main(void) {
 
     init_game_board(&player_board);
     place_ships(&player_board);
+
+    debug_init(9600);
+    
+    debug_printf("Hello World\n");
+    
     //print_board(&player_board);
     
     
