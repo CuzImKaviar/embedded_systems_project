@@ -4,8 +4,6 @@
 
 #include <stdbool.h>
 
-
-
 uint8_t EPL_init_usart(epl_usart_t *init){
 
     /*This is a static implementation of the USART2 peripheral*/

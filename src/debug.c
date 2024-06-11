@@ -1,36 +1,33 @@
 #include "debug.h"
 
-void debug_init(uint32_t baudrate) {
-    // Enable clocks for USART1 and GPIOA
-    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+void debug_init(void) {
+
+     // Enable peripheral GPIOA clock
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+    // Enable peripheral USART1 clock
+    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
 
-    // Configure PA9 (TX) and PA10 (RX) in alternate function mode
-    GPIOA->MODER |= GPIO_MODER_MODER9_1 | GPIO_MODER_MODER10_1;
-    GPIOA->AFR[1] |= (0x1 << 4) | (0x1 << 8);
+    // Configure PA2 as USART1_TX using alternate function 1
+    GPIOA->MODER &= ~(GPIO_MODER_MODER2 | GPIO_MODER_MODER3);
+    GPIOA->MODER |= GPIO_MODER_MODER2_1 | GPIO_MODER_MODER3_1; // Alternate function mode
+    GPIOA->AFR[0] &= ~(GPIO_AFRL_AFSEL2 | GPIO_AFRL_AFSEL3); // Clear alternate function settings
+    GPIOA->AFR[0] |= (0b0001 << (4 * 2)) | (0b0001 << (4 * 3)); // Set AF1 for PA2 (USART1 TX) and PA3 (USART1 RX)
 
-    // Configure USART1
-    USART1->BRR = SystemCoreClock / baudrate;
-    USART1->CR1 |= USART_CR1_TE | USART_CR1_RE;
-    USART1->CR1 |= USART_CR1_UE;
+    // Configure the UART Baud rate Register
+    USART1->BRR = (48000000 / 9600);
+
+    // Enable the UART using the CR1 register
+    USART1->CR1 |= (USART_CR1_RE | USART_CR1_TE | USART_CR1_UE);
+
 }
 
 void debug_send_char(char c) {
-    while (!(USART1->ISR & USART_ISR_TXE));
-    USART1->TDR = c;
+    while (!(USART1->ISR & USART_ISR_TXE)); // Wait until transmit data register is empty
+    USART1->TDR = c; // Transmit data
 }
 
-void debug_send_string(const char* str) {
-    while (*str) {
-        debug_send_char(*str++);
+void debug_send_string(char *s) {
+    while (*s) {
+        debug_send_char(*s++);
     }
-}
-
-void debug_printf(const char* fmt, ...) {
-    char buffer[128];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-    debug_send_string(buffer);
 }

@@ -11,6 +11,7 @@
 #include <string.h>
 
 
+
 uint8_t data[20];
 uint8_t data_idx = 0;
 bool newline_rcvd = false;
@@ -28,22 +29,6 @@ int hits[GRID_SIZE][GRID_SIZE] = {0};
 //global variable to store the player number
 int player = 0;
 int x, y;
-
-void set_default_values(void){
-    uint8_t data[20];
-    uint8_t data_idx = 0;
-    bool newline_rcvd = false;
-    GameBoard player_board, opponent_board;
-    GameState state = STATE_INIT;
-    GamePhase phase = PHASE_START;
-    int counter = 0;
-    int schiffe_getroffen = 0;
-
-    //global variable to store the player number
-    int player = 0;
-    // 2D-Array zur Verfolgung der bereits beschossenen Felder
-    int hits[GRID_SIZE][GRID_SIZE] = {0};
-}
 
 
 
@@ -125,37 +110,37 @@ void reset_data() {
 }
 
 void process_sf(const char *data) {
-    int col_1 = 0;
     int sf_data[GRID_SIZE] = {0};
+    int col = 0;
+    int counter = 0;
 
-    // Parse the input data into columns
-    while(col_1 < GRID_SIZE) {
+    
+    while(col<GRID_SIZE){
         if(newline_rcvd){
-            for(int i = 0; i < 10; i++){
-                if(data[i+4] != '0'){
-                    sf_data[col_1]++;
-                }
+            for (int i = 0; i < GRID_SIZE; i++){
+                    if(data[i + 4] != '0'){
+                        sf_data[i]++;
+                    }
             }
-            col_1++;
+            col++;
             reset_data();
         }
-    }
-
-    // Compare the calculated checksum with the opponent's checksum
-    int valid = 1;
-    for (int col = 0; col < GRID_SIZE; col++) {
-        if (sf_data[col] != opponent_board.checksum[col]) {
-            valid = 0;
-            printf("eMismatch in column %d: expected %d, got %d\n", col, opponent_board.checksum[col], sf_data[col]);
+        counter++;
+        if(counter > 1000){
+            phase = PHASE_END;
+            return;
         }
     }
 
-    if (valid) {
-        //printf("eSF data matches the opponent's checksum.\n");
-    } else {
-        printf("eSF data does not match the opponent's checksum.\n");
+    for(int i = 0; i < GRID_SIZE; i++){
+        if(sf_data[i] != opponent_board.checksum[i]){
+            printf("eSF data does not match the opponent's checksum.\n");
+            return;
+        }
     }
+    phase = PHASE_END;
 }
+
 
 void process_received_data(const char *data) {
     if (strncmp(data, "START", 5) == 0) {
@@ -180,13 +165,13 @@ void process_received_data(const char *data) {
         iterations++;
         if(iterations > 100){
             printf("#Schüsse>100\n");
-            player = 3;
+            
             phase = PHASE_END;
             state = STATE_RESET;
         }
     } else if (strncmp(data, "SF", 2) == 0) {
         process_sf(data);
-        player = 3;
+       
         phase = PHASE_END;
         state = STATE_SEND_SF;
     } /*else {
@@ -199,11 +184,10 @@ void handle_shot(GameBoard *board, int x, int y) {
     if (board->grid[x][y] == SHIP || board->grid[x][y] == HIT) {
         board->grid[x][y] = HIT;
         hit_counter++;
-        if(hit_counter == 30){
+        if(hit_counter >= 30){
             //printf("Lost!!!!!!!\n"); //DEBUG MESSAGE
-            player = 3;
-            state = STATE_SEND_SF;
             phase = PHASE_END;
+            state = STATE_SEND_SF;   
         }
         else{
             printf("T\n");
@@ -226,6 +210,20 @@ void send_sf(GameBoard *board){
         }
         printf("\n");
     }
+}
+
+void set_default_values(void){
+    phase = PHASE_START;
+    iterations = 0;
+    schiffe_getroffen = 0;
+    hit_counter = 0;
+    memset(hits, 0, sizeof(hits));
+    memset(opponent_id, 0, sizeof(opponent_id));
+    memset(&opponent_board, 0, sizeof(opponent_board));
+    memset(&player_board, 0, sizeof(player_board));
+    init_game_board(&player_board);
+    place_ships(&player_board);
+    won = false;
 }
 
 
@@ -324,13 +322,24 @@ void end_loop(void){
     switch(state){
         case STATE_SEND_SF:
             // Send SF message
-            //printf("SF\n");
             send_sf(&player_board);
-            state = STATE_RESET;
+            if(won == true){
+                state = STATE_RESET;
+            }
+            else{
+                process_sf((char*)data);
+                state = STATE_RESET;
+            }   
+            
             break;
         case STATE_RESET:
             set_default_values();
             reset_data();
+            if(player == 1){
+                state = STATE_SEND_START;
+            } else if(player == 2){
+                state = STATE_PROCESS_START;
+            }
             break;
         default:
             break;
@@ -350,9 +359,9 @@ int main(void) {
     init_game_board(&player_board);
     place_ships(&player_board);
 
-    debug_init(9600);
-    
-    debug_printf("Hello World\n");
+    //debug_init();
+    //debug_send_string("Hello World\n");
+    //debug_printf("Hello World\n");
     
     //print_board(&player_board);
     
@@ -360,7 +369,7 @@ int main(void) {
     while (1) {
 ///////////////////////////////////////////WAIT FOR START///////////////////////////////////////////
 
-        if (button && player == 0) {
+        if ((button && player == 0)) {
             player = 1;
             state = STATE_SEND_START;
         }
@@ -370,7 +379,7 @@ int main(void) {
         }
 
 ///////////////////////////////////////////GAME PHASE///////////////////////////////////////////
-        if(player != 0 && player != 3){
+        if(player != 0){
             if(phase == PHASE_START){
                 start_loop();
             }
@@ -380,12 +389,10 @@ int main(void) {
         }
         
 ///////////////////////////////////////////END PHASE///////////////////////////////////////////
-        if(player == 3){
-            if(phase == PHASE_END){
-                state = STATE_SEND_SF;
-                end_loop();
-            }
+        if(phase == PHASE_END){
+            end_loop();
         }
+        
     }
 
     return 0;
