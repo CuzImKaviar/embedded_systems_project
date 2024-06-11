@@ -28,7 +28,7 @@ int hits[GRID_SIZE][GRID_SIZE] = {0};
 
 //global variable to store the player number
 int player = 0;
-int x, y;
+int x = 0, y = 0;
 
 bool sf_send = false;
 
@@ -137,7 +137,7 @@ void process_sf(const char *data) {
 
     for(int i = 0; i < GRID_SIZE; i++){
         if(sf_data[i] != opponent_board.checksum[i]){
-            printf("eSF data does not match the opponent's checksum.\n");
+            //printf("eSF data does not match the opponent's checksum.\n");
             return;
         }
     }
@@ -169,7 +169,7 @@ void process_received_data(const char *data) {
         }
         iterations++;
         if(iterations > 100){
-            printf("eSchüsse>100\n");
+            //printf("eSchüsse>100\n");
             
             phase = PHASE_END;
             state = STATE_RESET;
@@ -183,7 +183,7 @@ void process_received_data(const char *data) {
         state = STATE_RESET;
         phase = PHASE_END;
     } else {
-        //printf("eUngueltige Daten: %s", data);
+        //printf("e%s not known", data);
         return;
     }
     reset_data();
@@ -249,7 +249,7 @@ void start_loop(void) {
             if(player == 1){
                 phase = PHASE_START;
                 state = STATE_WAIT_CHECKSUM;
-            } else if(player == 2){
+            } else{
                 phase = PHASE_GAME;
                 state = STATE_INIT_PLAYER;
             }
@@ -276,7 +276,7 @@ void start_loop(void) {
             if(player == 1){
                 phase = PHASE_START;
                 state = STATE_WAIT_START;
-            } else if(player ==2){
+            } else{
                 phase = PHASE_START;
                 state = STATE_WAIT_CHECKSUM;
             }
@@ -288,7 +288,7 @@ void start_loop(void) {
                 if(player == 1){
                     phase = PHASE_START;
                     state = STATE_SEND_CHECKSUM;
-                } else if(player==2){
+                } else{
                     phase = PHASE_START;
                     state = STATE_SEND_START;
                 }
@@ -306,7 +306,7 @@ void game_loop(void){
             if(player == 1){
                 phase = PHASE_GAME;
                 state = STATE_SEND_SHOT;
-            } else if(player==2){
+            } else{
                 phase = PHASE_GAME;
                 state = STATE_HANDLE_SHOT;
             }
@@ -359,7 +359,7 @@ void end_loop(void){
             if(player == 1){
                 phase = PHASE_START;
                 state = STATE_SEND_START;
-            } else if(player == 2){
+            } else{
                 phase = PHASE_START;
                 state = STATE_PROCESS_START;
             }
