@@ -22,8 +22,8 @@ void debug_init(void) {
 }
 
 void debug_send_char(char c) {
-    while (!(USART1->ISR & USART_ISR_TXE)); // Wait until transmit data register is empty
-    USART1->TDR = c; // Transmit data
+    while (!(USART1->ISR & USART_ISR_TXE));
+    USART1->TDR = c;
 }
 
 void debug_send_string(char *s) {

@@ -30,6 +30,8 @@ int hits[GRID_SIZE][GRID_SIZE] = {0};
 int player = 0;
 int x, y;
 
+bool sf_send = false;
+
 
 
 // Funktion, um die Spalte mit den meisten Schiffen zu ermitteln
@@ -126,8 +128,9 @@ void process_sf(const char *data) {
             reset_data();
         }
         counter++;
-        if(counter > 1000){
+        if(counter > 100){
             phase = PHASE_END;
+            state = STATE_RESET;
             return;
         }
     }
@@ -157,14 +160,16 @@ void process_received_data(const char *data) {
     } else if ((strncmp(data, "T", 1) == 0 || strncmp(data, "W", 1) == 0) && strlen(data) == 2) {
         if(strncmp(data, "T", 1) == 0){
             schiffe_getroffen++;
+            phase = PHASE_GAME;
             state = STATE_HANDLE_SHOT;
         }
         if(strncmp(data, "W", 1) == 0){
+            phase = PHASE_GAME;
             state = STATE_HANDLE_SHOT;
         }
         iterations++;
         if(iterations > 100){
-            printf("#Schüsse>100\n");
+            printf("eSchüsse>100\n");
             
             phase = PHASE_END;
             state = STATE_RESET;
@@ -174,10 +179,14 @@ void process_received_data(const char *data) {
        
         phase = PHASE_END;
         state = STATE_SEND_SF;
-    } /*else {
-        printf("Ungueltige Daten: %s", data);
-    }*/
-    //reset_data();
+    } else if(strncmp(data, "Etimeout", 8) == 0){
+        state = STATE_RESET;
+        phase = PHASE_END;
+    } else {
+        //printf("eUngueltige Daten: %s", data);
+        return;
+    }
+    reset_data();
 }
 
 void handle_shot(GameBoard *board, int x, int y) {
@@ -193,12 +202,14 @@ void handle_shot(GameBoard *board, int x, int y) {
             printf("T\n");
             smart_fire_solution();
             state = STATE_CHECK_SHOT;
+            phase = PHASE_GAME;
         }
-    } else if (board->grid[x][y] == WATER) {
+    } else {
         board->grid[x][y] = MISS;
         printf("W\n");
         smart_fire_solution();
         state = STATE_CHECK_SHOT;
+        phase = PHASE_GAME;
     }
 }
 
@@ -210,6 +221,7 @@ void send_sf(GameBoard *board){
         }
         printf("\n");
     }
+    sf_send = true;
 }
 
 void set_default_values(void){
@@ -222,8 +234,10 @@ void set_default_values(void){
     memset(&opponent_board, 0, sizeof(opponent_board));
     memset(&player_board, 0, sizeof(player_board));
     init_game_board(&player_board);
+    init_game_board(&opponent_board);
     place_ships(&player_board);
     won = false;
+    sf_send = false;
 }
 
 
@@ -233,6 +247,7 @@ void start_loop(void) {
             // Initial state p1, send START message
             printf("START52215874\n");
             if(player == 1){
+                phase = PHASE_START;
                 state = STATE_WAIT_CHECKSUM;
             } else if(player == 2){
                 phase = PHASE_GAME;
@@ -243,7 +258,7 @@ void start_loop(void) {
             // Initial state p2, process START message
             if(newline_rcvd){
                 process_received_data((char*)data);
-                reset_data();
+                phase = PHASE_START;
                 state = STATE_SEND_CHECKSUM;
             }
             break;
@@ -251,7 +266,6 @@ void start_loop(void) {
             // Wait for START message
             if(newline_rcvd){
                 process_received_data((char*)data);
-                reset_data();
                 phase = PHASE_GAME;
                 state = STATE_INIT_PLAYER;
             }
@@ -260,8 +274,10 @@ void start_loop(void) {
             // Send checksum to opponent
             send_checksum(&player_board);
             if(player == 1){
+                phase = PHASE_START;
                 state = STATE_WAIT_START;
             } else if(player ==2){
+                phase = PHASE_START;
                 state = STATE_WAIT_CHECKSUM;
             }
             break;
@@ -269,10 +285,11 @@ void start_loop(void) {
             // Wait for checksum from opponent
             if(newline_rcvd){
                 process_received_data((char*)data);
-                reset_data();
                 if(player == 1){
+                    phase = PHASE_START;
                     state = STATE_SEND_CHECKSUM;
                 } else if(player==2){
+                    phase = PHASE_START;
                     state = STATE_SEND_START;
                 }
             }
@@ -287,28 +304,29 @@ void game_loop(void){
         case STATE_INIT_PLAYER:
             // Initial state, set player state
             if(player == 1){
+                phase = PHASE_GAME;
                 state = STATE_SEND_SHOT;
             } else if(player==2){
+                phase = PHASE_GAME;
                 state = STATE_HANDLE_SHOT;
             }
             break;
         case STATE_SEND_SHOT:
             // Send shot message
             smart_fire_solution();
+            phase = PHASE_GAME;
             state = STATE_CHECK_SHOT;
             break;
         case STATE_CHECK_SHOT:
             // Check result of shot
             if(newline_rcvd){
                 process_received_data((char*)data);
-                reset_data();
             }
             break;
         case STATE_HANDLE_SHOT:
             // Wait for opponent's shot
             if (newline_rcvd) {
                 process_received_data((char*)data);
-                reset_data();
                 handle_shot(&player_board, x, y);
             }
             break;
@@ -322,24 +340,31 @@ void end_loop(void){
     switch(state){
         case STATE_SEND_SF:
             // Send SF message
-            send_sf(&player_board);
+            if(sf_send == false){
+                send_sf(&player_board);
+            }
+            
             if(won == true){
+                phase = PHASE_END;
                 state = STATE_RESET;
             }
             else{
                 process_sf((char*)data);
+                phase = PHASE_END;
                 state = STATE_RESET;
             }   
             
             break;
         case STATE_RESET:
-            set_default_values();
-            reset_data();
             if(player == 1){
+                phase = PHASE_START;
                 state = STATE_SEND_START;
             } else if(player == 2){
+                phase = PHASE_START;
                 state = STATE_PROCESS_START;
             }
+            set_default_values();
+            reset_data();
             break;
         default:
             break;
@@ -357,6 +382,7 @@ int main(void) {
     exti_init();
 
     init_game_board(&player_board);
+    init_game_board(&opponent_board);
     place_ships(&player_board);
 
     //debug_init();
@@ -372,28 +398,34 @@ int main(void) {
         if ((button && player == 0)) {
             player = 1;
             state = STATE_SEND_START;
+            phase = PHASE_START;
         }
         else if (newline_rcvd && player == 0) {
             player = 2;
             state = STATE_PROCESS_START;
+            phase = PHASE_START;
         }
 
-///////////////////////////////////////////GAME PHASE///////////////////////////////////////////
+
         if(player != 0){
+///////////////////////////////////////////START PHASE///////////////////////////////////////////
+           
             if(phase == PHASE_START){
                 start_loop();
             }
+
+///////////////////////////////////////////GAME PHASE///////////////////////////////////////////
+           
             else if(phase == PHASE_GAME){
                 game_loop();
             }
-        }
-        
-///////////////////////////////////////////END PHASE///////////////////////////////////////////
-        if(phase == PHASE_END){
-            end_loop();
-        }
-        
-    }
 
+///////////////////////////////////////////END PHASE///////////////////////////////////////////
+            
+            else if(phase == PHASE_END){
+                end_loop();
+            }
+        }   
+    }
     return 0;
 }
