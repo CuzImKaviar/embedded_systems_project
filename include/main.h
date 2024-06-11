@@ -16,7 +16,7 @@ typedef enum {
     STATE_HANDLE_SHOT,
     STATE_INIT_PLAYER,
     STATE_CHECK_RESULT,
-    STATE_SF,
+    STATE_SEND_SF,
     STATE_RESET,
 } GameState;
 

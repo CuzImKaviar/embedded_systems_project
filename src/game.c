@@ -115,8 +115,8 @@ void print_board(GameBoard *board) {
     }
 }
 
-void stupid_fire_solution(void){
+/*void stupid_fire_solution(void){
     int x = ADC_read() % GRID_SIZE;
     int y = ADC_read() % GRID_SIZE;
     printf("BOOM%d%d\n", x, y);
-}
+}*/

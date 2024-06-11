@@ -16,7 +16,7 @@ typedef enum {
 
 typedef struct {
     CellState grid[GRID_SIZE][GRID_SIZE];
-    uint8_t checksum[GRID_SIZE];
+    int checksum[GRID_SIZE];
     int ship_lengths[GRID_SIZE][GRID_SIZE];
 } GameBoard;
 
